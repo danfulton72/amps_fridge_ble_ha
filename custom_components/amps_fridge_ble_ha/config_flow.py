@@ -11,7 +11,7 @@ from homeassistant.components.bluetooth import BluetoothServiceInfoBleak
 from homeassistant.config_entries import ConfigFlow, ConfigFlowResult
 from homeassistant.const import CONF_ADDRESS, CONF_NAME
 
-from .const import CONF_DUAL_ZONE_MODES, DOMAIN
+from .const import DOMAIN
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -69,9 +69,6 @@ class AmpsFridgeConfigFlow(ConfigFlow, domain=DOMAIN):
                     data={
                         CONF_ADDRESS: normalized_address,
                         CONF_NAME: name,
-                        CONF_DUAL_ZONE_MODES: user_input.get(
-                            CONF_DUAL_ZONE_MODES, False
-                        ),
                     },
                 )
 
@@ -84,7 +81,6 @@ class AmpsFridgeConfigFlow(ConfigFlow, domain=DOMAIN):
             {
                 vol.Required(CONF_ADDRESS, default=default_address): str,
                 vol.Optional(CONF_NAME, default=default_name): str,
-                vol.Optional(CONF_DUAL_ZONE_MODES, default=False): bool,
             }
         )
 
