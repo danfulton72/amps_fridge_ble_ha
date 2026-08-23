@@ -46,12 +46,16 @@ class AmpsFridgeClimateZone(AmpsFridgeEntity, ClimateEntity):
     configuration option here to opt into a "Fridge/Freezer mode switch"
     behavior - both zone entities are simply always available together.
 
-    No Max/Eco preset mode either: this entity only exposes power and
-    target temperature. Allowed operating range (min/max) per zone is
+    No Max/Eco preset mode either: this entity only exposes target
+    temperature. Power for the whole unit (not per-zone - the fridge
+    only has a single powered_on flag shared by both zones) is a
+    separate switch entity instead of climate's hvac_mode on/off,
+    since toggling one zone's climate "off" was silently powering off
+    the other zone too. Allowed operating range (min/max) per zone is
     configured separately via number entities.
     """
 
-    _attr_hvac_modes = [HVACMode.COOL, HVACMode.OFF]
+    _attr_hvac_modes = [HVACMode.COOL]
     _attr_temperature_unit = UnitOfTemperature.CELSIUS
     _attr_target_temperature_step = 1.0
     _attr_min_temp = -20
@@ -68,8 +72,8 @@ class AmpsFridgeClimateZone(AmpsFridgeEntity, ClimateEntity):
 
     @property
     def hvac_mode(self) -> HVACMode | None:
-        """Return hvac operation."""
-        return HVACMode.COOL if self.api.status.get("powered_on") else HVACMode.OFF
+        """Return hvac operation. Cool is the only supported mode; power is a separate switch."""
+        return HVACMode.COOL
 
     @property
     def current_temperature(self) -> float | None:
@@ -80,15 +84,6 @@ class AmpsFridgeClimateZone(AmpsFridgeEntity, ClimateEntity):
     def target_temperature(self) -> float | None:
         """Return the target temperature for this zone."""
         return self.api.status.get(f"{self._zone}_target")
-
-    async def async_set_hvac_mode(self, hvac_mode: HVACMode) -> None:
-        """Set new target hvac mode."""
-        is_on = hvac_mode == HVACMode.COOL
-        await self.api.async_set_values({"powered_on": is_on})
-
-        await asyncio.sleep(0.5)
-        if await self.api.update_status():
-            async_dispatcher_send(self.hass, f"{DOMAIN}_{self._address}_update")
 
     async def async_set_temperature(self, **kwargs: Any) -> None:
         """Set new target temperature for this zone."""
