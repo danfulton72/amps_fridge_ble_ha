@@ -7,14 +7,9 @@ DOMAIN = "amps_fridge_ble_ha"
 FRIDGE_RW_CHARACTERISTIC_UUID = "00001235-0000-1000-8000-00805f9b34fb"
 FRIDGE_NOTIFY_UUID = "00001236-0000-1000-8000-00805f9b34fb"
 
-# --- Configuration Options ---
-CONF_DUAL_ZONE_MODES = "dual_zone_modes"
-
 # --- Presets ---
 PRESET_ECO = "Eco"
 PRESET_MAX = "Max"
-PRESET_FRIDGE = "Fridge"
-PRESET_FREEZER = "Freezer"
 
 
 class Request:
@@ -24,8 +19,8 @@ class Request:
     QUERY = 0x01
     SET = 0x02
     RESET = 0x04
-    SET_LEFT = 0x05
-    SET_RIGHT = 0x06
+    SET_FRIDGE = 0x05
+    SET_FREEZER = 0x06
 
 
 # Response codes

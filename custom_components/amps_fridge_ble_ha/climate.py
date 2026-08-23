@@ -13,14 +13,7 @@ from homeassistant.helpers.dispatcher import async_dispatcher_send
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 
 from .api import FridgeApi
-from .const import (
-    CONF_DUAL_ZONE_MODES,
-    DOMAIN,
-    PRESET_ECO,
-    PRESET_FREEZER,
-    PRESET_FRIDGE,
-    PRESET_MAX,
-)
+from .const import DOMAIN, PRESET_ECO, PRESET_MAX
 from .entity import AmpsFridgeEntity
 
 _LOGGER = logging.getLogger(__name__)
@@ -34,17 +27,25 @@ async def async_setup_entry(
     """Set up the AMPS Fridge climate entities based on initial status."""
     api: FridgeApi = hass.data[DOMAIN][entry.entry_id]
 
-    entities = [AmpsFridgeClimateZone(entry, api, "left")]
+    entities = [AmpsFridgeClimateZone(entry, api, "fridge")]
 
-    if "right_current" in api.status:
-        _LOGGER.debug("Dual-zone fridge detected, adding right zone entity")
-        entities.append(AmpsFridgeClimateZone(entry, api, "right"))
+    if "freezer_current" in api.status:
+        _LOGGER.debug("Dual-zone fridge detected, adding freezer zone entity")
+        entities.append(AmpsFridgeClimateZone(entry, api, "freezer"))
 
     async_add_entities(entities)
 
 
 class AmpsFridgeClimateZone(AmpsFridgeEntity, ClimateEntity):
-    """Representation of an AMPS Fridge refrigerator zone."""
+    """Representation of an AMPS Fridge refrigerator zone.
+
+    The AMPS F50 (and similar models) has a genuinely separate fridge
+    compartment and freezer compartment - both cool independently and
+    simultaneously, not a single compressor that switches between them.
+    So unlike some other Alpicool-protocol fridges, there is no user
+    configuration option here to opt into a "Fridge/Freezer mode switch"
+    behavior - both zone entities are simply always available together.
+    """
 
     _attr_hvac_modes = [HVACMode.COOL, HVACMode.OFF]
     _attr_temperature_unit = UnitOfTemperature.CELSIUS
@@ -54,46 +55,15 @@ class AmpsFridgeClimateZone(AmpsFridgeEntity, ClimateEntity):
     _attr_supported_features = (
         ClimateEntityFeature.TARGET_TEMPERATURE | ClimateEntityFeature.PRESET_MODE
     )
+    _attr_preset_modes = [PRESET_MAX, PRESET_ECO]
 
     def __init__(self, entry: ConfigEntry, api: FridgeApi, zone: str) -> None:
-        """Initialize the climate entity for a specific zone."""
+        """Initialize the climate entity for a specific zone ("fridge" or "freezer")."""
         super().__init__(entry, api)
         self._zone = zone
-        # Read the configuration option selected by the user
-        self._has_fridge_freezer_mode = entry.data.get(CONF_DUAL_ZONE_MODES, False)
 
         self._attr_unique_id = f"{self._address}_{self._zone}"
         self._attr_name = f"{self._zone.capitalize()}"
-
-    @property
-    def _is_dual_zone(self) -> bool:
-        """Helper to check if this is a dual-zone model."""
-        return "right_current" in self.api.status
-
-    @property
-    def preset_modes(self) -> list[str] | None:
-        """Return a list of available preset modes based on user configuration."""
-        if self._is_dual_zone and self._has_fridge_freezer_mode:
-            return [PRESET_FRIDGE, PRESET_FREEZER]
-        return [PRESET_MAX, PRESET_ECO]
-
-    @property
-    def available(self) -> bool:
-        """Return True if the device and this specific zone are available."""
-        if not super().available:
-            return False
-
-        # For configured dual-zone models, the right zone is only available in Freezer mode
-        if (
-            self._is_dual_zone
-            and self._has_fridge_freezer_mode
-            and self._zone == "right"
-        ):
-            # run_mode 0 is Fridge, 1 is Freezer
-            if self.api.status.get("run_mode") == 0:
-                return False
-
-        return True
 
     @property
     def hvac_mode(self) -> HVACMode | None:
@@ -112,10 +82,8 @@ class AmpsFridgeClimateZone(AmpsFridgeEntity, ClimateEntity):
 
     @property
     def preset_mode(self) -> str | None:
-        """Return the current preset mode, adapted for user configuration."""
+        """Return the current preset mode."""
         run_mode = self.api.status.get("run_mode")
-        if self._is_dual_zone and self._has_fridge_freezer_mode:
-            return PRESET_FREEZER if run_mode == 1 else PRESET_FRIDGE
         return PRESET_ECO if run_mode == 1 else PRESET_MAX
 
     async def async_set_hvac_mode(self, hvac_mode: HVACMode) -> None:
@@ -139,8 +107,7 @@ class AmpsFridgeClimateZone(AmpsFridgeEntity, ClimateEntity):
 
     async def async_set_preset_mode(self, preset_mode: str) -> None:
         """Set new preset mode."""
-        is_mode_1 = preset_mode in [PRESET_ECO, PRESET_FREEZER]
-        run_mode_value = 1 if is_mode_1 else 0
+        run_mode_value = 1 if preset_mode == PRESET_ECO else 0
         await self.api.async_set_values({"run_mode": run_mode_value})
         await asyncio.sleep(0.5)
         if await self.api.update_status():

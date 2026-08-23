@@ -15,8 +15,8 @@ from .entity import AmpsFridgeEntity
 _LOGGER = logging.getLogger(__name__)
 
 NUMBERS = {
-    "left_ret_diff": {
-        "name": "Hysteresis",
+    "fridge_ret_diff": {
+        "name": "Fridge Hysteresis",
         "min": 1,
         "max": 10,
         "step": 1,
@@ -35,11 +35,11 @@ NUMBERS = {
 
 # Only present on dual-zone (fridge/freezer) models. Confirmed via BLE capture
 # against a real AMPS/Alpicool-protocol fridge (F50): these are the freezer
-# zone's own settable temperature range, separate from the left zone's
-# temp_max/temp_min. Range bounds below are generous defaults (-30 to 15);
-# tighten them if your model's app UI shows a narrower allowed range.
+# zone's own settable temperature range, separate from the fridge zone's
+# fridge_temp_max/fridge_temp_min. Range bounds below are generous defaults
+# (-30 to 15); tighten them if your model's app UI shows a narrower range.
 DUAL_ZONE_NUMBERS = {
-    "right_temp_max": {
+    "freezer_temp_max": {
         "name": "Freezer Max Temperature",
         "min": -30,
         "max": 15,
@@ -47,7 +47,7 @@ DUAL_ZONE_NUMBERS = {
         "mode": NumberMode.SLIDER,
         "unit": "°C",
     },
-    "right_temp_min": {
+    "freezer_temp_min": {
         "name": "Freezer Min Temperature",
         "min": -30,
         "max": 15,
@@ -71,7 +71,7 @@ async def async_setup_entry(
         for number_key, number_def in NUMBERS.items()
     ]
 
-    if "right_current" in api.status:
+    if "freezer_current" in api.status:
         _LOGGER.debug("Dual-zone fridge detected, adding freezer range entities")
         entities.extend(
             AmpsFridgeNumber(entry, api, number_key, number_def)
