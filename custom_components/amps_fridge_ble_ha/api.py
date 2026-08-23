@@ -73,16 +73,31 @@ class FridgeApi:
             right_zone_data = bytearray(
                 [
                     to_unsigned_byte(current_status.get("right_target", 0)),
-                    0,
-                    0,
+                    # Confirmed via BLE capture against a real AMPS/Alpicool-protocol
+                    # fridge (F50): these two bytes are NOT padding. They are the
+                    # freezer zone's settable max/min range (mirrors temp_max/
+                    # temp_min for the left zone). Previously hardcoded to 0/0,
+                    # which silently reset the freezer's configured range on
+                    # every SET command (lock, power, temp, battery-saver, etc).
+                    to_unsigned_byte(current_status.get("right_temp_max", 10)),
+                    to_unsigned_byte(current_status.get("right_temp_min", -20)),
                     to_unsigned_byte(current_status.get("right_ret_diff", 1)),
                     to_unsigned_byte(current_status.get("right_tc_hot", 0)),
                     to_unsigned_byte(current_status.get("right_tc_mid", 0)),
                     to_unsigned_byte(current_status.get("right_tc_cold", 0)),
                     to_unsigned_byte(current_status.get("right_tc_halt", 0)),
-                    0,
-                    0,
-                    0,
+                    # These three trailing bytes are still not understood, but a
+                    # BLE capture of 13 real SET commands from the AMPS app -
+                    # covering power, lock, run_mode, battery-saver, and both
+                    # zones' temps/ranges - showed this exact 3-byte sequence
+                    # (00 03 00) every single time, never 00 00 00 and never
+                    # varying with any tested setting. Treating it as a fixed
+                    # protocol constant rather than 0/0/0 padding or preserved
+                    # status (it does NOT match the unrelated unknown_28/29/30
+                    # fields reported in STATUS responses, which do vary).
+                    0x00,
+                    0x03,
+                    0x00,
                 ]
             )
             data.extend(right_zone_data)
@@ -159,8 +174,10 @@ class FridgeApi:
             if len(payload) >= 28:
                 dual_zone_status = {
                     "right_target": _to_signed_byte(payload[18]),
-                    "unknown_19": payload[19],
-                    "unknown_20": payload[20],
+                    # Confirmed via BLE capture: these mirror temp_max/temp_min
+                    # but for the right (freezer) zone, not unused padding.
+                    "right_temp_max": _to_signed_byte(payload[19]),
+                    "right_temp_min": _to_signed_byte(payload[20]),
                     "right_ret_diff": _to_signed_byte(payload[21]),
                     "right_tc_hot": _to_signed_byte(payload[22]),
                     "right_tc_mid": _to_signed_byte(payload[23]),

@@ -29,6 +29,14 @@ This integration supports !!!untested!!! **both single and dual-zone fridges**.
 * For **dual-zone** models, it will create two `climate` entities (`... Left` and `... Right`), which will both become available.
 * For **single-zone** models, it will also create two `climate` entities, but the `... Right` entity will remain permanently `unavailable` as the fridge does not report data for it. You can disable or hide this second entity in Home Assistant.
 
+## Changelog
+
+### 0.1
+* Forked and renamed from [`Gruni22/alpicool_ha_ble`](https://github.com/Gruni22/alpicool_ha_ble) to `amps_fridge_ble_ha`, targeting AMPS-branded fridges (e.g. the AMPS F50) in addition to Alpicool, since both share the same underlying BLE protocol - verified byte-for-byte against a real AMPS F50 via BLE packet capture.
+* **Fix:** `_build_set_other_payload` no longer zeroes out the freezer (right) zone's temperature range on every SET command. Those two bytes are now decoded/exposed as `right_temp_max` / `right_temp_min` instead of being treated as unused padding. Previously, sending *any* command (lock, power, battery-saver, fridge zone temp, etc.) would silently reset the freezer's configured min/max range to 0/0.
+* Added `Freezer Max Temperature` and `Freezer Min Temperature` number entities for dual-zone models, so the freezer's allowed range can be read and adjusted from Home Assistant the same way the fridge zone's range already can.
+* Fixed the SET command's trailing 3-byte footer to the verified constant (`00 03 00`), observed across 13 real SET commands from the manufacturer app, rather than an earlier unverified guess.
+
 ***
 ## Installation
 

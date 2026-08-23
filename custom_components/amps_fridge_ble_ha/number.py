@@ -33,6 +33,30 @@ NUMBERS = {
     },
 }
 
+# Only present on dual-zone (fridge/freezer) models. Confirmed via BLE capture
+# against a real AMPS/Alpicool-protocol fridge (F50): these are the freezer
+# zone's own settable temperature range, separate from the left zone's
+# temp_max/temp_min. Range bounds below are generous defaults (-30 to 15);
+# tighten them if your model's app UI shows a narrower allowed range.
+DUAL_ZONE_NUMBERS = {
+    "right_temp_max": {
+        "name": "Freezer Max Temperature",
+        "min": -30,
+        "max": 15,
+        "step": 1,
+        "mode": NumberMode.SLIDER,
+        "unit": "°C",
+    },
+    "right_temp_min": {
+        "name": "Freezer Min Temperature",
+        "min": -30,
+        "max": 15,
+        "step": 1,
+        "mode": NumberMode.SLIDER,
+        "unit": "°C",
+    },
+}
+
 
 async def async_setup_entry(
     hass: HomeAssistant,
@@ -46,6 +70,14 @@ async def async_setup_entry(
         AmpsFridgeNumber(entry, api, number_key, number_def)
         for number_key, number_def in NUMBERS.items()
     ]
+
+    if "right_current" in api.status:
+        _LOGGER.debug("Dual-zone fridge detected, adding freezer range entities")
+        entities.extend(
+            AmpsFridgeNumber(entry, api, number_key, number_def)
+            for number_key, number_def in DUAL_ZONE_NUMBERS.items()
+        )
+
     async_add_entities(entities)
 
 
