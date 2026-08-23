@@ -7,10 +7,6 @@ DOMAIN = "amps_fridge_ble_ha"
 FRIDGE_RW_CHARACTERISTIC_UUID = "00001235-0000-1000-8000-00805f9b34fb"
 FRIDGE_NOTIFY_UUID = "00001236-0000-1000-8000-00805f9b34fb"
 
-# --- Presets ---
-PRESET_ECO = "Eco"
-PRESET_MAX = "Max"
-
 
 class Request:
     """Possible Commands."""

@@ -13,7 +13,7 @@ from homeassistant.helpers.dispatcher import async_dispatcher_send
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 
 from .api import FridgeApi
-from .const import DOMAIN, PRESET_ECO, PRESET_MAX
+from .const import DOMAIN
 from .entity import AmpsFridgeEntity
 
 _LOGGER = logging.getLogger(__name__)
@@ -45,6 +45,10 @@ class AmpsFridgeClimateZone(AmpsFridgeEntity, ClimateEntity):
     So unlike some other Alpicool-protocol fridges, there is no user
     configuration option here to opt into a "Fridge/Freezer mode switch"
     behavior - both zone entities are simply always available together.
+
+    No Max/Eco preset mode either: this entity only exposes power and
+    target temperature. Allowed operating range (min/max) per zone is
+    configured separately via number entities.
     """
 
     _attr_hvac_modes = [HVACMode.COOL, HVACMode.OFF]
@@ -52,10 +56,7 @@ class AmpsFridgeClimateZone(AmpsFridgeEntity, ClimateEntity):
     _attr_target_temperature_step = 1.0
     _attr_min_temp = -20
     _attr_max_temp = 20
-    _attr_supported_features = (
-        ClimateEntityFeature.TARGET_TEMPERATURE | ClimateEntityFeature.PRESET_MODE
-    )
-    _attr_preset_modes = [PRESET_MAX, PRESET_ECO]
+    _attr_supported_features = ClimateEntityFeature.TARGET_TEMPERATURE
 
     def __init__(self, entry: ConfigEntry, api: FridgeApi, zone: str) -> None:
         """Initialize the climate entity for a specific zone ("fridge" or "freezer")."""
@@ -80,12 +81,6 @@ class AmpsFridgeClimateZone(AmpsFridgeEntity, ClimateEntity):
         """Return the target temperature for this zone."""
         return self.api.status.get(f"{self._zone}_target")
 
-    @property
-    def preset_mode(self) -> str | None:
-        """Return the current preset mode."""
-        run_mode = self.api.status.get("run_mode")
-        return PRESET_ECO if run_mode == 1 else PRESET_MAX
-
     async def async_set_hvac_mode(self, hvac_mode: HVACMode) -> None:
         """Set new target hvac mode."""
         is_on = hvac_mode == HVACMode.COOL
@@ -104,11 +99,3 @@ class AmpsFridgeClimateZone(AmpsFridgeEntity, ClimateEntity):
             await asyncio.sleep(0.5)
             if await self.api.update_status():
                 async_dispatcher_send(self.hass, f"{DOMAIN}_{self._address}_update")
-
-    async def async_set_preset_mode(self, preset_mode: str) -> None:
-        """Set new preset mode."""
-        run_mode_value = 1 if preset_mode == PRESET_ECO else 0
-        await self.api.async_set_values({"run_mode": run_mode_value})
-        await asyncio.sleep(0.5)
-        if await self.api.update_status():
-            async_dispatcher_send(self.hass, f"{DOMAIN}_{self._address}_update")

@@ -15,6 +15,22 @@ from .entity import AmpsFridgeEntity
 _LOGGER = logging.getLogger(__name__)
 
 NUMBERS = {
+    "fridge_temp_max": {
+        "name": "Fridge Max Temperature",
+        "min": -30,
+        "max": 15,
+        "step": 1,
+        "mode": NumberMode.SLIDER,
+        "unit": "°C",
+    },
+    "fridge_temp_min": {
+        "name": "Fridge Min Temperature",
+        "min": -30,
+        "max": 15,
+        "step": 1,
+        "mode": NumberMode.SLIDER,
+        "unit": "°C",
+    },
     "fridge_ret_diff": {
         "name": "Fridge Hysteresis",
         "min": 1,
