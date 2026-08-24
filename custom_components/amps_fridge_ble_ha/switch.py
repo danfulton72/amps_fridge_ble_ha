@@ -17,12 +17,9 @@ async def async_setup_entry(
     async_add_entities: AddConfigEntryEntitiesCallback,
 ) -> None:
     """Set up AMPS Fridge switch entities."""
-    coordinator = entry.runtime_data.coordinator
+    api = entry.runtime_data.api
     async_add_entities(
-        [
-            AmpsFridgePowerSwitch(entry, coordinator),
-            AmpsFridgeLockSwitch(entry, coordinator),
-        ]
+        [AmpsFridgePowerSwitch(entry, api), AmpsFridgeLockSwitch(entry, api)]
     )
 
 
@@ -33,23 +30,25 @@ class AmpsFridgePowerSwitch(AmpsFridgeEntity, SwitchEntity):
     _attr_entity_category = EntityCategory.CONFIG
     _attr_name = "Power"
 
-    def __init__(self, entry, coordinator) -> None:
+    def __init__(self, entry, api) -> None:
         """Initialize the power switch."""
-        super().__init__(entry, coordinator)
+        super().__init__(entry, api)
         self._attr_unique_id = f"{self._address}_power"
 
     @property
     def is_on(self) -> bool | None:
         """Return whether the fridge is powered on."""
-        return self.coordinator.data.get("powered_on")
+        return self.api.status.get("powered_on")
 
     async def async_turn_on(self, **kwargs: Any) -> None:
         """Turn the fridge on."""
-        await self.coordinator.async_write_and_refresh({"powered_on": True})
+        await self.api.async_set_values({"powered_on": True})
+        await self._async_refresh_after_write()
 
     async def async_turn_off(self, **kwargs: Any) -> None:
         """Turn the fridge off."""
-        await self.coordinator.async_write_and_refresh({"powered_on": False})
+        await self.api.async_set_values({"powered_on": False})
+        await self._async_refresh_after_write()
 
 
 class AmpsFridgeLockSwitch(AmpsFridgeEntity, SwitchEntity):
@@ -59,20 +58,22 @@ class AmpsFridgeLockSwitch(AmpsFridgeEntity, SwitchEntity):
     _attr_entity_category = EntityCategory.CONFIG
     _attr_name = "Lock"
 
-    def __init__(self, entry, coordinator) -> None:
+    def __init__(self, entry, api) -> None:
         """Initialize the lock switch."""
-        super().__init__(entry, coordinator)
+        super().__init__(entry, api)
         self._attr_unique_id = f"{self._address}_lock"
 
     @property
     def is_on(self) -> bool | None:
         """Return whether the control panel is locked."""
-        return self.coordinator.data.get("locked")
+        return self.api.status.get("locked")
 
     async def async_turn_on(self, **kwargs: Any) -> None:
         """Enable the control-panel lock."""
-        await self.coordinator.async_write_and_refresh({"locked": True})
+        await self.api.async_set_values({"locked": True})
+        await self._async_refresh_after_write()
 
     async def async_turn_off(self, **kwargs: Any) -> None:
         """Disable the control-panel lock."""
-        await self.coordinator.async_write_and_refresh({"locked": False})
+        await self.api.async_set_values({"locked": False})
+        await self._async_refresh_after_write()
