@@ -3,7 +3,11 @@
 from collections.abc import Callable
 from typing import Any
 
-from homeassistant.components.sensor import SensorDeviceClass, SensorEntity, SensorStateClass
+from homeassistant.components.sensor import (
+    SensorDeviceClass,
+    SensorEntity,
+    SensorStateClass,
+)
 from homeassistant.const import PERCENTAGE, EntityCategory, UnitOfElectricPotential
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
@@ -49,7 +53,13 @@ async def async_setup_entry(
 class AmpsFridgeSensor(AmpsFridgeEntity, SensorEntity):
     """Representation of an AMPS Fridge sensor."""
 
-    def __init__(self, entry, coordinator, sensor_key: str, sensor_def: dict[str, Any]) -> None:
+    def __init__(
+        self,
+        entry,
+        coordinator,
+        sensor_key: str,
+        sensor_def: dict[str, Any],
+    ) -> None:
         """Initialize the sensor."""
         super().__init__(entry, coordinator)
         self._sensor_def = sensor_def
