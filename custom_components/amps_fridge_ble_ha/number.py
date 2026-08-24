@@ -1,130 +1,66 @@
 """Number platform for the AMPS Fridge BLE integration."""
 
-import logging
+from typing import Any
 
 from homeassistant.components.number import NumberEntity, NumberMode
-from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import EntityCategory
+from homeassistant.const import EntityCategory, UnitOfTemperature, UnitOfTime
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 
-from .api import FridgeApi
-from .const import DOMAIN
+from . import AmpsFridgeConfigEntry
 from .entity import AmpsFridgeEntity
 
-_LOGGER = logging.getLogger(__name__)
-
-NUMBERS = {
-    "fridge_temp_max": {
-        "name": "Fridge Max Temperature",
-        "min": -30,
-        "max": 15,
-        "step": 1,
-        "mode": NumberMode.SLIDER,
-        "unit": "°C",
-    },
-    "fridge_temp_min": {
-        "name": "Fridge Min Temperature",
-        "min": -30,
-        "max": 15,
-        "step": 1,
-        "mode": NumberMode.SLIDER,
-        "unit": "°C",
-    },
-    "fridge_ret_diff": {
-        "name": "Fridge Hysteresis",
-        "min": 1,
-        "max": 10,
-        "step": 1,
-        "mode": NumberMode.SLIDER,
-        "unit": "°C",
-    },
-    "start_delay": {
-        "name": "Start Delay",
-        "min": 0,
-        "max": 10,
-        "step": 1,
-        "mode": NumberMode.SLIDER,
-        "unit": "min",
-    },
+NUMBERS: dict[str, dict[str, Any]] = {
+    "fridge_temp_max": {"name": "Fridge max temperature", "min": -30, "max": 15, "step": 1, "mode": NumberMode.SLIDER, "unit": UnitOfTemperature.CELSIUS},
+    "fridge_temp_min": {"name": "Fridge min temperature", "min": -30, "max": 15, "step": 1, "mode": NumberMode.SLIDER, "unit": UnitOfTemperature.CELSIUS},
+    "fridge_ret_diff": {"name": "Fridge hysteresis", "min": 1, "max": 10, "step": 1, "mode": NumberMode.SLIDER, "unit": UnitOfTemperature.CELSIUS},
+    "start_delay": {"name": "Start delay", "min": 0, "max": 10, "step": 1, "mode": NumberMode.SLIDER, "unit": UnitOfTime.MINUTES},
 }
 
-# Only present on dual-zone (fridge/freezer) models. Confirmed via BLE capture
-# against a real AMPS/Alpicool-protocol fridge (F50): these are the freezer
-# zone's own settable temperature range, separate from the fridge zone's
-# fridge_temp_max/fridge_temp_min. Range bounds below are generous defaults
-# (-30 to 15); tighten them if your model's app UI shows a narrower range.
-DUAL_ZONE_NUMBERS = {
-    "freezer_temp_max": {
-        "name": "Freezer Max Temperature",
-        "min": -30,
-        "max": 15,
-        "step": 1,
-        "mode": NumberMode.SLIDER,
-        "unit": "°C",
-    },
-    "freezer_temp_min": {
-        "name": "Freezer Min Temperature",
-        "min": -30,
-        "max": 15,
-        "step": 1,
-        "mode": NumberMode.SLIDER,
-        "unit": "°C",
-    },
+DUAL_ZONE_NUMBERS: dict[str, dict[str, Any]] = {
+    "freezer_temp_max": {"name": "Freezer max temperature", "min": -30, "max": 15, "step": 1, "mode": NumberMode.SLIDER, "unit": UnitOfTemperature.CELSIUS},
+    "freezer_temp_min": {"name": "Freezer min temperature", "min": -30, "max": 15, "step": 1, "mode": NumberMode.SLIDER, "unit": UnitOfTemperature.CELSIUS},
 }
 
 
 async def async_setup_entry(
     hass: HomeAssistant,
-    entry: ConfigEntry,
+    entry: AmpsFridgeConfigEntry,
     async_add_entities: AddConfigEntryEntitiesCallback,
 ) -> None:
-    """Set up the AMPS Fridge number entities."""
-    api: FridgeApi = hass.data[DOMAIN][entry.entry_id]
-
-    entities = [
-        AmpsFridgeNumber(entry, api, number_key, number_def)
-        for number_key, number_def in NUMBERS.items()
-    ]
-
-    if "freezer_current" in api.status:
-        _LOGGER.debug("Dual-zone fridge detected, adding freezer range entities")
-        entities.extend(
-            AmpsFridgeNumber(entry, api, number_key, number_def)
-            for number_key, number_def in DUAL_ZONE_NUMBERS.items()
-        )
-
-    async_add_entities(entities)
+    """Set up AMPS Fridge number entities."""
+    coordinator = entry.runtime_data.coordinator
+    definitions = dict(NUMBERS)
+    if "freezer_current" in coordinator.data:
+        definitions.update(DUAL_ZONE_NUMBERS)
+    async_add_entities(
+        AmpsFridgeNumber(entry, coordinator, key, definition)
+        for key, definition in definitions.items()
+    )
 
 
 class AmpsFridgeNumber(AmpsFridgeEntity, NumberEntity):
-    """Representation of an AMPS Fridge Number entity."""
+    """Representation of an AMPS Fridge numeric setting."""
 
     _attr_entity_category = EntityCategory.CONFIG
 
-    def __init__(
-        self, entry: ConfigEntry, api: FridgeApi, number_key: str, number_def: dict
-    ) -> None:
+    def __init__(self, entry, coordinator, number_key: str, number_def: dict[str, Any]) -> None:
         """Initialize the number entity."""
-        super().__init__(entry, api)
+        super().__init__(entry, coordinator)
         self._number_key = number_key
-        self._number_def = number_def
-
-        self._attr_unique_id = f"{self._address}_{self._number_key}"
-        self._attr_name = f"{entry.data['name']} {self._number_def['name']}"
-        self._attr_native_min_value = self._number_def["min"]
-        self._attr_native_max_value = self._number_def["max"]
-        self._attr_native_step = self._number_def["step"]
-        self._attr_mode = self._number_def["mode"]
-        self._attr_native_unit_of_measurement = self._number_def.get("unit")
+        self._attr_unique_id = f"{self._address}_{number_key}"
+        self._attr_name = number_def["name"]
+        self._attr_native_min_value = number_def["min"]
+        self._attr_native_max_value = number_def["max"]
+        self._attr_native_step = number_def["step"]
+        self._attr_mode = number_def["mode"]
+        self._attr_native_unit_of_measurement = number_def["unit"]
 
     @property
     def native_value(self) -> float | None:
-        """Return the state of the number entity."""
-        if not self.available:
-            return None
-        return self.api.status.get(self._number_key)
+        """Return the current setting."""
+        return self.coordinator.data.get(self._number_key)
 
     async def async_set_native_value(self, value: float) -> None:
-        """Update the current value."""
-        await self.api.async_set_values({self._number_key: int(value)})
+        """Update the setting and refresh state."""
+        await self.coordinator.async_write_and_refresh({self._number_key: int(value)})
