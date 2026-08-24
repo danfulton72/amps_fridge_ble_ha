@@ -1,39 +1,29 @@
-"""Models for the AMPS Fridge BLE integration."""
+"""Base entities for the AMPS Fridge BLE integration."""
 
-from homeassistant.config_entries import ConfigEntry
-from homeassistant.helpers.dispatcher import async_dispatcher_connect
-from homeassistant.helpers.entity import Entity
+from __future__ import annotations
+
+from homeassistant.const import CONF_ADDRESS, CONF_NAME
 from homeassistant.helpers.device_registry import DeviceInfo
+from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .api import FridgeApi
+from . import AmpsFridgeConfigEntry
 from .const import DOMAIN
+from .coordinator import AmpsFridgeCoordinator
 
 
-class AmpsFridgeEntity(Entity):
+class AmpsFridgeEntity(CoordinatorEntity[AmpsFridgeCoordinator]):
     """Base class for AMPS Fridge entities."""
 
-    _attr_should_poll = False
     _attr_has_entity_name = True
 
-    def __init__(self, entry: ConfigEntry, api: FridgeApi) -> None:
+    def __init__(
+        self, entry: AmpsFridgeConfigEntry, coordinator: AmpsFridgeCoordinator
+    ) -> None:
         """Initialize the entity."""
-        self.api = api
-        self._address = entry.data["address"]
+        super().__init__(coordinator)
+        self._address = entry.data[CONF_ADDRESS]
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, self._address)},
-            name=entry.data["name"],
+            name=entry.data[CONF_NAME],
             manufacturer="AMPS",
-        )
-
-    @property
-    def available(self) -> bool:
-        """Return True if the device is available."""
-        return self.api.is_available
-
-    async def async_added_to_hass(self) -> None:
-        """Connect to events."""
-        self.async_on_remove(
-            async_dispatcher_connect(
-                self.hass, f"{DOMAIN}_{self._address}_update", self.async_write_ha_state
-            )
         )
