@@ -4,12 +4,15 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from bleak.exc import BleakError
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_ADDRESS, Platform
 from homeassistant.core import HomeAssistant
+from homeassistant.exceptions import ConfigEntryNotReady
+from homeassistant.helpers.dispatcher import async_dispatcher_send
 
 from .api import FridgeApi
-from .coordinator import AmpsFridgeCoordinator
+from .const import DOMAIN
 
 PLATFORMS: list[Platform] = [
     Platform.CLIMATE,
@@ -25,7 +28,6 @@ class AmpsFridgeRuntimeData:
     """Runtime data for an AMPS Fridge config entry."""
 
     api: FridgeApi
-    coordinator: AmpsFridgeCoordinator
 
 
 AmpsFridgeConfigEntry = ConfigEntry[AmpsFridgeRuntimeData]
@@ -34,11 +36,28 @@ AmpsFridgeConfigEntry = ConfigEntry[AmpsFridgeRuntimeData]
 async def async_setup_entry(hass: HomeAssistant, entry: AmpsFridgeConfigEntry) -> bool:
     """Set up AMPS Fridge BLE from a config entry."""
     api = FridgeApi(hass, entry.data[CONF_ADDRESS])
-    coordinator = AmpsFridgeCoordinator(hass, entry, api)
-    entry.runtime_data = AmpsFridgeRuntimeData(api=api, coordinator=coordinator)
+    entry.runtime_data = AmpsFridgeRuntimeData(api=api)
 
-    await coordinator.async_config_entry_first_refresh()
+    try:
+        if not await api.connect():
+            raise ConfigEntryNotReady("Could not connect to AMPS fridge")
+        if not await api.update_status():
+            raise ConfigEntryNotReady("Could not get initial AMPS fridge status")
+    except BleakError as err:
+        await api.disconnect()
+        raise ConfigEntryNotReady(f"Failed to initialize AMPS fridge: {err}") from err
+
+    api.set_initial_timestamp()
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
+
+    address = entry.data[CONF_ADDRESS]
+    entry.async_create_background_task(
+        hass,
+        api.start_polling(
+            lambda: async_dispatcher_send(hass, f"{DOMAIN}_{address}_update")
+        ),
+        name="amps_fridge_ble_poll",
+    )
     return True
 
 
