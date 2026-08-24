@@ -11,15 +11,57 @@ from . import AmpsFridgeConfigEntry
 from .entity import AmpsFridgeEntity
 
 NUMBERS: dict[str, dict[str, Any]] = {
-    "fridge_temp_max": {"name": "Fridge max temperature", "min": -30, "max": 15, "step": 1, "mode": NumberMode.SLIDER, "unit": UnitOfTemperature.CELSIUS},
-    "fridge_temp_min": {"name": "Fridge min temperature", "min": -30, "max": 15, "step": 1, "mode": NumberMode.SLIDER, "unit": UnitOfTemperature.CELSIUS},
-    "fridge_ret_diff": {"name": "Fridge hysteresis", "min": 1, "max": 10, "step": 1, "mode": NumberMode.SLIDER, "unit": UnitOfTemperature.CELSIUS},
-    "start_delay": {"name": "Start delay", "min": 0, "max": 10, "step": 1, "mode": NumberMode.SLIDER, "unit": UnitOfTime.MINUTES},
+    "fridge_temp_max": {
+        "name": "Fridge max temperature",
+        "min": -30,
+        "max": 15,
+        "step": 1,
+        "mode": NumberMode.SLIDER,
+        "unit": UnitOfTemperature.CELSIUS,
+    },
+    "fridge_temp_min": {
+        "name": "Fridge min temperature",
+        "min": -30,
+        "max": 15,
+        "step": 1,
+        "mode": NumberMode.SLIDER,
+        "unit": UnitOfTemperature.CELSIUS,
+    },
+    "fridge_ret_diff": {
+        "name": "Fridge hysteresis",
+        "min": 1,
+        "max": 10,
+        "step": 1,
+        "mode": NumberMode.SLIDER,
+        "unit": UnitOfTemperature.CELSIUS,
+    },
+    "start_delay": {
+        "name": "Start delay",
+        "min": 0,
+        "max": 10,
+        "step": 1,
+        "mode": NumberMode.SLIDER,
+        "unit": UnitOfTime.MINUTES,
+    },
 }
 
 DUAL_ZONE_NUMBERS: dict[str, dict[str, Any]] = {
-    "freezer_temp_max": {"name": "Freezer max temperature", "min": -30, "max": 15, "step": 1, "mode": NumberMode.SLIDER, "unit": UnitOfTemperature.CELSIUS},
-    "freezer_temp_min": {"name": "Freezer min temperature", "min": -30, "max": 15, "step": 1, "mode": NumberMode.SLIDER, "unit": UnitOfTemperature.CELSIUS},
+    "freezer_temp_max": {
+        "name": "Freezer max temperature",
+        "min": -30,
+        "max": 15,
+        "step": 1,
+        "mode": NumberMode.SLIDER,
+        "unit": UnitOfTemperature.CELSIUS,
+    },
+    "freezer_temp_min": {
+        "name": "Freezer min temperature",
+        "min": -30,
+        "max": 15,
+        "step": 1,
+        "mode": NumberMode.SLIDER,
+        "unit": UnitOfTemperature.CELSIUS,
+    },
 }
 
 
@@ -44,7 +86,13 @@ class AmpsFridgeNumber(AmpsFridgeEntity, NumberEntity):
 
     _attr_entity_category = EntityCategory.CONFIG
 
-    def __init__(self, entry, coordinator, number_key: str, number_def: dict[str, Any]) -> None:
+    def __init__(
+        self,
+        entry,
+        coordinator,
+        number_key: str,
+        number_def: dict[str, Any],
+    ) -> None:
         """Initialize the number entity."""
         super().__init__(entry, coordinator)
         self._number_key = number_key
