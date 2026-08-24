@@ -74,6 +74,8 @@ When a second zone is reported by the device, the integration additionally expos
 - `number`: Freezer max temperature
 - `number`: Freezer min temperature
 
+Each climate entity uses the corresponding device-configured temperature limits as its Home Assistant target range. The Fridge climate exposes `fridge_temp_min`/`fridge_temp_max` as `min_temp`/`max_temp`, and the Freezer climate exposes `freezer_temp_min`/`freezer_temp_max`. Changing the associated number entities therefore updates the selectable target-temperature range for that zone after the device status refreshes.
+
 The exact settings accepted by a fridge can vary by model.
 
 ## Bluetooth implementation
