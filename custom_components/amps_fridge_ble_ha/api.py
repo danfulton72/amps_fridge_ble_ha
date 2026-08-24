@@ -16,6 +16,7 @@ from homeassistant.core import HomeAssistant
 from .const import FRIDGE_NOTIFY_UUID, FRIDGE_RW_CHARACTERISTIC_UUID, Request
 
 _LOGGER = logging.getLogger(__name__)
+AVAILABILITY_TIMEOUT_SECONDS = 5 * 60
 
 
 def _to_signed_byte(value: int) -> int:
@@ -329,7 +330,10 @@ class FridgeApi:
                     asyncio.get_running_loop().time()
                     - self._last_successful_update_time
                 )
-                if seconds_since_success > 300 and self.is_available:
+                if (
+                    seconds_since_success > AVAILABILITY_TIMEOUT_SECONDS
+                    and self.is_available
+                ):
                     self.is_available = False
                     self.status.clear()
 
