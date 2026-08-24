@@ -1,66 +1,51 @@
 """Select platform for the AMPS Fridge BLE integration."""
 
-import logging
-
 from homeassistant.components.select import SelectEntity
-from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import EntityCategory
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 
-from .api import FridgeApi
-from .const import DOMAIN, BatteryProtection
+from . import AmpsFridgeConfigEntry
+from .const import BatteryProtection
 from .entity import AmpsFridgeEntity
 
-_LOGGER = logging.getLogger(__name__)
-
 BATTERY_SAVER_OPTIONS = [level.name.capitalize() for level in BatteryProtection]
-BATTERY_SAVER_MAP = {
-    level.name.capitalize(): level.value for level in BatteryProtection
-}
-BATTERY_SAVER_MAP_REV = {v: k for k, v in BATTERY_SAVER_MAP.items()}
+BATTERY_SAVER_MAP = {level.name.capitalize(): level.value for level in BatteryProtection}
+BATTERY_SAVER_MAP_REV = {value: name for name, value in BATTERY_SAVER_MAP.items()}
 
 
 async def async_setup_entry(
     hass: HomeAssistant,
-    entry: ConfigEntry,
+    entry: AmpsFridgeConfigEntry,
     async_add_entities: AddConfigEntryEntitiesCallback,
 ) -> None:
-    """Set up the AMPS Fridge select entities."""
-    api: FridgeApi = hass.data[DOMAIN][entry.entry_id]
-    async_add_entities([AmpsFridgeBatterySaverSelect(entry, api)])
+    """Set up AMPS Fridge select entities."""
+    async_add_entities(
+        [AmpsFridgeBatterySaverSelect(entry, entry.runtime_data.coordinator)]
+    )
 
 
 class AmpsFridgeBatterySaverSelect(AmpsFridgeEntity, SelectEntity):
-    """Representation of the AMPS Fridge Battery Saver select entity."""
+    """Battery protection level select."""
 
     _attr_entity_category = EntityCategory.CONFIG
     _attr_options = BATTERY_SAVER_OPTIONS
+    _attr_name = "Battery saver"
 
-    def __init__(self, entry: ConfigEntry, api: FridgeApi) -> None:
+    def __init__(self, entry, coordinator) -> None:
         """Initialize the select entity."""
-        super().__init__(entry, api)
+        super().__init__(entry, coordinator)
         self._attr_unique_id = f"{self._address}_battery_saver"
-        self._attr_name = "Battery Saver"
 
     @property
     def current_option(self) -> str | None:
-        """Return the currently selected option."""
-        if not self.available:
-            return None
-
-        bat_saver_value = self.api.status.get("bat_saver")
-        # Map the numeric value (0, 1, 2) to the string ("Low", "Medium", "High")
-        if bat_saver_value is None:
-            return None
-        return BATTERY_SAVER_MAP_REV.get(bat_saver_value)
+        """Return the selected battery protection level."""
+        return BATTERY_SAVER_MAP_REV.get(self.coordinator.data.get("bat_saver"))
 
     async def async_select_option(self, option: str) -> None:
-        """Change the selected option."""
-        if option not in self.options:
-            _LOGGER.debug("Invalid option selected: %s", option)
-            return
-
-        bat_saver_value = BATTERY_SAVER_MAP.get(option)
-
-        await self.api.async_set_values({"bat_saver": bat_saver_value})
+        """Change the selected battery protection level."""
+        if option not in BATTERY_SAVER_MAP:
+            raise ValueError(f"Unsupported battery saver option: {option}")
+        await self.coordinator.async_write_and_refresh(
+            {"bat_saver": BATTERY_SAVER_MAP[option]}
+        )
