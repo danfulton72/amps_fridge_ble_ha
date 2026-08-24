@@ -80,7 +80,7 @@ The exact settings accepted by a fridge can vary by model.
 
 The integration uses Home Assistant's Bluetooth device resolution and `bleak-retry-connector` rather than starting its own scanner. This allows Home Assistant to select the best local adapter or Bluetooth proxy path for the device.
 
-A single custom background polling task updates shared API state for all entities. It polls every 30 seconds while connected and retries every 60 seconds while disconnected. A temporary communication failure does not immediately mark the device unavailable: the last successful update timestamp is retained, and the integration only marks entities unavailable after five minutes without a successful status response. Control writes request an immediate status refresh so UI state is confirmed from the fridge rather than waiting for the next normal poll.
+A single custom background polling task updates shared API state for all entities. It polls every 30 seconds while connected and retries every 60 seconds while disconnected. A temporary communication failure does not immediately mark the device unavailable: the last successful update timestamp is retained, and the integration only marks entities unavailable after five minutes (300 seconds) without a successful status response. Control writes request an immediate status refresh so UI state is confirmed from the fridge rather than waiting for the next normal poll.
 
 The protocol parser supports fragmented and concatenated BLE notifications and rejects packets with invalid checksums before they can overwrite entity state.
 
