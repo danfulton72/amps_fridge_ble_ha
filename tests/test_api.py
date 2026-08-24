@@ -1,6 +1,10 @@
 """Protocol tests for AMPS Fridge BLE."""
 
-from custom_components.amps_fridge_ble_ha.api import FridgeApi, _to_signed_byte
+from custom_components.amps_fridge_ble_ha.api import (
+    AVAILABILITY_TIMEOUT_SECONDS,
+    FridgeApi,
+    _to_signed_byte,
+)
 from custom_components.amps_fridge_ble_ha.const import Request
 
 ADDRESS = "AA:BB:CC:DD:EE:FF"
@@ -45,6 +49,10 @@ def _response_packet(api: FridgeApi, payload: bytes) -> bytes:
     packet.extend(payload)
     packet.extend(api._checksum(packet).to_bytes(2, "big"))
     return bytes(packet)
+
+
+def test_availability_timeout_is_five_minutes() -> None:
+    assert AVAILABILITY_TIMEOUT_SECONDS == 300
 
 
 def test_signed_byte_conversion() -> None:
