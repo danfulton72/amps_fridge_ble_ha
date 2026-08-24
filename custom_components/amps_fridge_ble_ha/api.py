@@ -9,7 +9,6 @@ from typing import Any
 from bleak import BleakClient
 from bleak.exc import BleakError
 from bleak_retry_connector import establish_connection
-
 from homeassistant.components import bluetooth
 from homeassistant.core import HomeAssistant
 
@@ -267,7 +266,9 @@ class FridgeApi:
                 await self.disconnect()
                 return False
 
-            await self._client.start_notify(FRIDGE_NOTIFY_UUID, self._notification_handler)
+            await self._client.start_notify(
+                FRIDGE_NOTIFY_UUID, self._notification_handler
+            )
 
             if not is_reconnect:
                 self._bind_event.clear()
