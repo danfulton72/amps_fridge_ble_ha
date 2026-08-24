@@ -318,12 +318,15 @@ class FridgeApi:
 
         while True:
             try:
-                if not self.is_connected:
-                    if await self.connect(is_reconnect=self._has_connected_once):
-                        self.is_available = True
+                if not self.is_connected and await self.connect(
+                    is_reconnect=self._has_connected_once
+                ):
+                    self.is_available = True
 
                 if self.is_connected and await self.update_status():
-                    self._last_successful_update_time = asyncio.get_running_loop().time()
+                    self._last_successful_update_time = (
+                        asyncio.get_running_loop().time()
+                    )
                     self.is_available = True
 
                 seconds_since_success = (
