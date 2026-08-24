@@ -34,7 +34,7 @@ AmpsFridgeConfigEntry = ConfigEntry[AmpsFridgeRuntimeData]
 async def async_setup_entry(hass: HomeAssistant, entry: AmpsFridgeConfigEntry) -> bool:
     """Set up AMPS Fridge BLE from a config entry."""
     api = FridgeApi(hass, entry.data[CONF_ADDRESS])
-    coordinator = AmpsFridgeCoordinator(hass, api)
+    coordinator = AmpsFridgeCoordinator(hass, entry, api)
     entry.runtime_data = AmpsFridgeRuntimeData(api=api, coordinator=coordinator)
 
     await coordinator.async_config_entry_first_refresh()
