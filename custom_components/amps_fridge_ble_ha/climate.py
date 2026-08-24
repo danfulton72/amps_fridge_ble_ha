@@ -15,9 +15,7 @@ DEFAULT_MIN_TEMP = -20.0
 DEFAULT_MAX_TEMP = 20.0
 
 
-def _zone_temperature_limits(
-    status: dict[str, Any], zone: str
-) -> tuple[float, float]:
+def _zone_temperature_limits(status: dict[str, Any], zone: str) -> tuple[float, float]:
     """Return the configured minimum and maximum target temperatures for a zone."""
     min_temp = status.get(f"{zone}_temp_min")
     max_temp = status.get(f"{zone}_temp_max")
@@ -84,7 +82,5 @@ class AmpsFridgeClimateZone(AmpsFridgeEntity, ClimateEntity):
         """Set a new target temperature."""
         if ATTR_TEMPERATURE not in kwargs:
             return
-        await self.api.async_set_temperature(
-            self._zone, int(kwargs[ATTR_TEMPERATURE])
-        )
+        await self.api.async_set_temperature(self._zone, int(kwargs[ATTR_TEMPERATURE]))
         await self._async_refresh_after_write()
