@@ -5,6 +5,10 @@ import logging
 
 from bleak import BleakClient
 from bleak.exc import BleakError
+from bleak_retry_connector import establish_connection
+
+from homeassistant.components import bluetooth
+from homeassistant.core import HomeAssistant
 
 from .const import FRIDGE_NOTIFY_UUID, FRIDGE_RW_CHARACTERISTIC_UUID, Request
 
@@ -19,15 +23,20 @@ def _to_signed_byte(b: int) -> int:
 class FridgeApi:
     """A class to interact with the fridge."""
 
-    def __init__(self, address: str) -> None:
+    def __init__(self, hass: HomeAssistant, address: str) -> None:
         """Initialize the API."""
+        self._hass = hass
         self._lock = asyncio.Lock()
         self.status = {}
         self._status_updated_event = asyncio.Event()
         self._bind_event = asyncio.Event()
         self._poll_task = None
         self._address = address
-        self._client = BleakClient(self._address, timeout=30.0)
+        # Created lazily in connect() via bleak_retry_connector.establish_connection,
+        # which picks the best current path to the device (including through
+        # Bluetooth proxies) and handles retries - rather than a single
+        # BleakClient built once here and reused for the whole lifetime.
+        self._client: BleakClient | None = None
         self._write_requires_response = False
         # Buffer for reassembling fragmented packets
         self._notification_buffer = bytearray()
@@ -282,8 +291,28 @@ class FridgeApi:
         """Connect to the fridge and try to bind, with a fallback."""
         _LOGGER.debug("Attempting to connect")
         try:
-            if not self._client.is_connected:
-                await self._client.connect()
+            if not self._client or not self._client.is_connected:
+                # Look up a fresh BLEDevice each attempt rather than caching one -
+                # HA's Bluetooth stack tracks which adapter/proxy currently has
+                # the best path to the device, which can change over time.
+                ble_device = bluetooth.async_ble_device_from_address(
+                    self._hass, self._address, connectable=True
+                )
+                if not ble_device:
+                    _LOGGER.error(
+                        "No connectable BLE device found for %s. Is it in "
+                        "range of an adapter or Bluetooth proxy?",
+                        self._address,
+                    )
+                    return False
+
+                # establish_connection handles retries, backoff, and the
+                # "already in progress" contention that can happen when
+                # multiple integrations share the same Bluetooth adapter/
+                # proxy - unlike calling BleakClient.connect() directly.
+                self._client = await establish_connection(
+                    BleakClient, ble_device, self._address
+                )
 
             _LOGGER.debug("Discovering services and characteristics")
             write_char = None
@@ -352,16 +381,21 @@ class FridgeApi:
         _LOGGER.debug("Connection is not active after connect attempt")
         return False
 
+    @property
+    def _is_connected(self) -> bool:
+        """Return True if we have a live BLE connection."""
+        return self._client is not None and self._client.is_connected
+
     async def disconnect(self):
         """Disconnect from the fridge."""
         if self._poll_task:
             self._poll_task.cancel()
-        if self._client and self._client.is_connected:
+        if self._is_connected:
             await self._client.disconnect()
 
     async def _send_raw(self, packet: bytes):
         """Send raw packet to fridge, adapting write method."""
-        if not self._client.is_connected:
+        if not self._is_connected:
             _LOGGER.debug("Cannot send, not connected")
             return
         _LOGGER.debug("--> SENDING: %s", packet.hex())
@@ -373,7 +407,7 @@ class FridgeApi:
 
     async def update_status(self) -> bool:
         """Request status and wait for notification. Returns True on success, False on timeout."""
-        if not self._client.is_connected:
+        if not self._is_connected:
             _LOGGER.debug("Cannot update status, not connected")
             return False
 
@@ -394,7 +428,7 @@ class FridgeApi:
             self._last_successful_update_time = asyncio.get_running_loop().time()
         while True:
             try:
-                if not self._client.is_connected:
+                if not self._is_connected:
                     _LOGGER.debug("Device disconnected, attempting to reconnect")
                     if await self.connect(is_reconnect=True):
                         _LOGGER.debug("Successfully reconnected to device")
@@ -404,7 +438,7 @@ class FridgeApi:
                         )
                     else:
                         _LOGGER.debug("Reconnect failed. Will retry later")
-                if self._client.is_connected:
+                if self._is_connected:
                     if await self.update_status():
                         self._last_successful_update_time = (
                             asyncio.get_running_loop().time()
@@ -426,7 +460,7 @@ class FridgeApi:
                 update_callback()
 
                 # --- Sleep ---
-                sleep_duration = 30 if self._client.is_connected else 60
+                sleep_duration = 30 if self._is_connected else 60
                 await asyncio.sleep(sleep_duration)
 
             except asyncio.CancelledError:

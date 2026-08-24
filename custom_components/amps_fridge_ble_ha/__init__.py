@@ -29,7 +29,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     hass.data.setdefault(DOMAIN, {})
     address = entry.data["address"]
 
-    api = FridgeApi(address)
+    api = FridgeApi(hass, address)
     hass.data[DOMAIN][entry.entry_id] = api
 
     try:
