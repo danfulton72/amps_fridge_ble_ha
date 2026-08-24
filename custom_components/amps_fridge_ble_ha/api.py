@@ -244,6 +244,27 @@ class FridgeApi:
 
             _LOGGER.debug("<-- RECEIVED from %s: %s", sender, current_packet.hex())
 
+            claimed_checksum = bytes(current_packet[-2:])
+            computed_checksum = self._checksum(current_packet[:-2]).to_bytes(
+                2, "big"
+            )
+            if claimed_checksum != computed_checksum:
+                # A BLE notification occasionally arrives corrupted (dropped or
+                # duplicated fragment, weak signal, a flaky BLE proxy, etc) -
+                # confirmed against a real capture where a corrupted packet's
+                # second half was a garbled repeat of its first half. Without
+                # this check, that garbage gets decoded and silently overwrites
+                # real entity state (e.g. a bogus 33 degC target) until the
+                # next successful poll happens to correct it. Discard instead.
+                _LOGGER.warning(
+                    "Discarding packet with invalid checksum (claimed %s, "
+                    "computed %s): %s",
+                    claimed_checksum.hex(),
+                    computed_checksum.hex(),
+                    current_packet.hex(),
+                )
+                continue
+
             cmd = current_packet[3]
             payload = current_packet[4:]
 
