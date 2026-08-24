@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from collections.abc import Callable
 from typing import Any
 
 from bleak import BleakClient
@@ -36,12 +37,9 @@ class FridgeApi:
         self._write_requires_response = False
         self._notification_buffer = bytearray()
         self._has_connected_once = False
+        self._last_successful_update_time = 0.0
+        self.is_available = True
         self.status: dict[str, Any] = {}
-
-    @property
-    def logger(self) -> logging.Logger:
-        """Return the module logger for coordinator logging."""
-        return _LOGGER
 
     @property
     def is_connected(self) -> bool:
@@ -52,6 +50,10 @@ class FridgeApi:
     def has_connected_once(self) -> bool:
         """Return whether initial binding has already been attempted."""
         return self._has_connected_once
+
+    def set_initial_timestamp(self) -> None:
+        """Record a successful initial status update."""
+        self._last_successful_update_time = asyncio.get_running_loop().time()
 
     @staticmethod
     def _checksum(data: bytes | bytearray) -> int:
@@ -108,7 +110,6 @@ class FridgeApi:
         """Set configuration values."""
         if not self.status:
             raise BleakError("Cannot write settings before status is available")
-
         await self._send_raw(
             self._build_packet(Request.SET, self._build_set_other_payload(new_values))
         )
@@ -193,7 +194,6 @@ class FridgeApi:
     def _notification_handler(self, sender: Any, data: bytearray) -> None:
         """Reassemble fragmented notifications and parse complete packets."""
         self._notification_buffer.extend(data)
-
         while self._notification_buffer:
             start_index = self._notification_buffer.find(b"\xfe\xfe")
             if start_index == -1:
@@ -201,7 +201,6 @@ class FridgeApi:
                 return
             if start_index:
                 del self._notification_buffer[:start_index]
-
             if len(self._notification_buffer) < 3:
                 return
 
@@ -211,7 +210,6 @@ class FridgeApi:
 
             current_packet = bytes(self._notification_buffer[:expected_total_len])
             del self._notification_buffer[:expected_total_len]
-
             claimed_checksum = current_packet[-2:]
             computed_checksum = self._checksum(current_packet[:-2]).to_bytes(2, "big")
             if claimed_checksum != computed_checksum:
@@ -220,7 +218,6 @@ class FridgeApi:
 
             cmd = current_packet[3]
             payload = current_packet[4:-2]
-
             if cmd == Request.QUERY:
                 if self._decode_status(payload):
                     self._status_updated_event.set()
@@ -244,7 +241,6 @@ class FridgeApi:
             self._client = await establish_connection(
                 BleakClient, ble_device, self._address
             )
-
             write_char = next(
                 (
                     char
@@ -269,7 +265,6 @@ class FridgeApi:
             await self._client.start_notify(
                 FRIDGE_NOTIFY_UUID, self._notification_handler
             )
-
             if not is_reconnect:
                 self._bind_event.clear()
                 await self._send_raw(self._build_packet(Request.BIND))
@@ -296,7 +291,6 @@ class FridgeApi:
         """Send a raw packet, serializing writes and adapting write method."""
         if not self.is_connected or self._client is None:
             raise BleakError("Fridge is not connected")
-
         async with self._lock:
             await self._client.write_gatt_char(
                 FRIDGE_RW_CHARACTERISTIC_UUID,
@@ -308,7 +302,6 @@ class FridgeApi:
         """Request status and wait for a valid notification."""
         if not self.is_connected:
             return False
-
         self._status_updated_event.clear()
         await self._send_raw(self._build_packet(Request.QUERY))
         try:
@@ -316,3 +309,39 @@ class FridgeApi:
         except TimeoutError:
             return False
         return True
+
+    async def start_polling(self, update_callback: Callable[[], None]) -> None:
+        """Poll status while retaining the five-minute availability grace period."""
+        if self._last_successful_update_time == 0:
+            self.set_initial_timestamp()
+
+        while True:
+            try:
+                if not self.is_connected:
+                    if await self.connect(is_reconnect=self._has_connected_once):
+                        self.is_available = True
+
+                if self.is_connected and await self.update_status():
+                    self._last_successful_update_time = asyncio.get_running_loop().time()
+                    self.is_available = True
+
+                seconds_since_success = (
+                    asyncio.get_running_loop().time()
+                    - self._last_successful_update_time
+                )
+                if seconds_since_success > 300 and self.is_available:
+                    self.is_available = False
+                    self.status.clear()
+
+                update_callback()
+                await asyncio.sleep(30 if self.is_connected else 60)
+            except asyncio.CancelledError:
+                self.is_available = False
+                raise
+            except BleakError as err:
+                _LOGGER.debug("BLE error during polling: %s", err)
+                await self.disconnect()
+                await asyncio.sleep(60)
+            except Exception:
+                _LOGGER.exception("Unexpected error during AMPS fridge polling")
+                await asyncio.sleep(60)
