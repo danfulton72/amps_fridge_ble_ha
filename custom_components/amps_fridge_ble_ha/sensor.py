@@ -43,9 +43,9 @@ async def async_setup_entry(
     async_add_entities: AddConfigEntryEntitiesCallback,
 ) -> None:
     """Set up AMPS Fridge sensor entities."""
-    coordinator = entry.runtime_data.coordinator
+    api = entry.runtime_data.api
     async_add_entities(
-        AmpsFridgeSensor(entry, coordinator, key, definition)
+        AmpsFridgeSensor(entry, api, key, definition)
         for key, definition in SENSORS.items()
     )
 
@@ -56,12 +56,12 @@ class AmpsFridgeSensor(AmpsFridgeEntity, SensorEntity):
     def __init__(
         self,
         entry,
-        coordinator,
+        api,
         sensor_key: str,
         sensor_def: dict[str, Any],
     ) -> None:
         """Initialize the sensor."""
-        super().__init__(entry, coordinator)
+        super().__init__(entry, api)
         self._sensor_def = sensor_def
         self._attr_unique_id = f"{self._address}_{sensor_key}"
         self._attr_name = sensor_def["name"]
@@ -74,4 +74,4 @@ class AmpsFridgeSensor(AmpsFridgeEntity, SensorEntity):
     def native_value(self) -> float | int | None:
         """Return the current sensor value."""
         value_fn: Callable[[dict[str, Any]], Any] = self._sensor_def["value_fn"]
-        return value_fn(self.coordinator.data)
+        return value_fn(self.api.status)
