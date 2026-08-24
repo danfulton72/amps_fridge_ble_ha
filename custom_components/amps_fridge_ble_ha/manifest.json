@@ -1,14 +1,6 @@
 {
   "domain": "amps_fridge_ble_ha",
   "name": "AMPS Fridge BLE",
-  "config_flow": true,
-  "documentation": "https://github.com/danfulton72/amps_fridge_ble_ha",
-  "iot_class": "local_polling",
-  "codeowners": ["@danfulton72"],
-  "issue_tracker": "https://github.com/danfulton72/amps_fridge_ble_ha/issues",
-  "requirements": ["bleak", "bleak-retry-connector"],
-  "dependencies": ["bluetooth_adapters"],
-  "version": "0.1",
   "bluetooth": [
     {
       "service_uuid": "00001234-0000-1000-8000-00805f9b34fb"
@@ -16,5 +8,12 @@
     {
       "service_uuid": "0000fff0-0000-1000-8000-00805f9b34fb"
     }
-  ]
+  ],
+  "codeowners": ["@danfulton72"],
+  "config_flow": true,
+  "dependencies": ["bluetooth_adapters"],
+  "documentation": "https://github.com/danfulton72/amps_fridge_ble_ha",
+  "iot_class": "local_polling",
+  "issue_tracker": "https://github.com/danfulton72/amps_fridge_ble_ha/issues",
+  "version": "0.1.0"
 }

@@ -1,0 +1,25 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Set up AMPS Fridge BLE",
+        "description": "Enter the Bluetooth address for your compatible fridge.",
+        "data": {
+          "address": "Bluetooth address",
+          "name": "Name"
+        },
+        "data_description": {
+          "address": "Bluetooth address in XX:XX:XX:XX:XX:XX format.",
+          "name": "Name to use for this fridge in Home Assistant."
+        }
+      }
+    },
+    "error": {
+      "invalid_address": "The Bluetooth address is invalid."
+    },
+    "abort": {
+      "already_configured": "This fridge is already configured.",
+      "invalid_address": "The discovered Bluetooth address is invalid."
+    }
+  }
+}
