@@ -11,6 +11,21 @@ from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 from . import AmpsFridgeConfigEntry
 from .entity import AmpsFridgeEntity
 
+DEFAULT_MIN_TEMP = -20.0
+DEFAULT_MAX_TEMP = 20.0
+
+
+def _zone_temperature_limits(
+    status: dict[str, Any], zone: str
+) -> tuple[float, float]:
+    """Return the configured minimum and maximum target temperatures for a zone."""
+    min_temp = status.get(f"{zone}_temp_min")
+    max_temp = status.get(f"{zone}_temp_max")
+    return (
+        float(min_temp) if min_temp is not None else DEFAULT_MIN_TEMP,
+        float(max_temp) if max_temp is not None else DEFAULT_MAX_TEMP,
+    )
+
 
 async def async_setup_entry(
     hass: HomeAssistant,
@@ -57,13 +72,13 @@ class AmpsFridgeClimateZone(AmpsFridgeEntity, ClimateEntity):
 
     @property
     def min_temp(self) -> float:
-        """Return the configured minimum target temperature."""
-        return float(self.api.status.get(f"{self._zone}_temp_min", -20))
+        """Return the device-configured minimum target temperature for this zone."""
+        return _zone_temperature_limits(self.api.status, self._zone)[0]
 
     @property
     def max_temp(self) -> float:
-        """Return the configured maximum target temperature."""
-        return float(self.api.status.get(f"{self._zone}_temp_max", 20))
+        """Return the device-configured maximum target temperature for this zone."""
+        return _zone_temperature_limits(self.api.status, self._zone)[1]
 
     async def async_set_temperature(self, **kwargs: Any) -> None:
         """Set a new target temperature."""
