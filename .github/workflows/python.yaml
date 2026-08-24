@@ -20,7 +20,7 @@ jobs:
           python-version: "3.13"
           cache: pip
       - name: Install test dependencies
-        run: python -m pip install --upgrade pip homeassistant aiousbwatcher pytest ruff
+        run: python -m pip install --upgrade pip homeassistant aiousbwatcher pyserial pytest ruff
       - name: Ruff lint
         run: ruff check .
       - name: Ruff format check
