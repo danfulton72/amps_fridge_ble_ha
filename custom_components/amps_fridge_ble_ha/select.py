@@ -10,7 +10,9 @@ from .const import BatteryProtection
 from .entity import AmpsFridgeEntity
 
 BATTERY_SAVER_OPTIONS = [level.name.capitalize() for level in BatteryProtection]
-BATTERY_SAVER_MAP = {level.name.capitalize(): level.value for level in BatteryProtection}
+BATTERY_SAVER_MAP = {
+    level.name.capitalize(): level.value for level in BatteryProtection
+}
 BATTERY_SAVER_MAP_REV = {value: name for name, value in BATTERY_SAVER_MAP.items()}
 
 
