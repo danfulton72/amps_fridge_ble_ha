@@ -5,7 +5,6 @@ from __future__ import annotations
 from typing import Any
 
 import voluptuous as vol
-
 from homeassistant.components.bluetooth import BluetoothServiceInfoBleak
 from homeassistant.config_entries import ConfigFlow, ConfigFlowResult
 from homeassistant.const import CONF_ADDRESS, CONF_NAME
@@ -56,7 +55,9 @@ class AmpsFridgeConfigFlow(ConfigFlow, domain=DOMAIN):
         if user_input is not None:
             raw_address = user_input.get(CONF_ADDRESS)
             normalized_address = (
-                normalize_ble_address(raw_address) if isinstance(raw_address, str) else None
+                normalize_ble_address(raw_address)
+                if isinstance(raw_address, str)
+                else None
             )
 
             if normalized_address is None:
