@@ -71,12 +71,12 @@ async def async_setup_entry(
     async_add_entities: AddConfigEntryEntitiesCallback,
 ) -> None:
     """Set up AMPS Fridge number entities."""
-    coordinator = entry.runtime_data.coordinator
+    api = entry.runtime_data.api
     definitions = dict(NUMBERS)
-    if "freezer_current" in coordinator.data:
+    if "freezer_current" in api.status:
         definitions.update(DUAL_ZONE_NUMBERS)
     async_add_entities(
-        AmpsFridgeNumber(entry, coordinator, key, definition)
+        AmpsFridgeNumber(entry, api, key, definition)
         for key, definition in definitions.items()
     )
 
@@ -89,12 +89,12 @@ class AmpsFridgeNumber(AmpsFridgeEntity, NumberEntity):
     def __init__(
         self,
         entry,
-        coordinator,
+        api,
         number_key: str,
         number_def: dict[str, Any],
     ) -> None:
         """Initialize the number entity."""
-        super().__init__(entry, coordinator)
+        super().__init__(entry, api)
         self._number_key = number_key
         self._attr_unique_id = f"{self._address}_{number_key}"
         self._attr_name = number_def["name"]
@@ -107,8 +107,9 @@ class AmpsFridgeNumber(AmpsFridgeEntity, NumberEntity):
     @property
     def native_value(self) -> float | None:
         """Return the current setting."""
-        return self.coordinator.data.get(self._number_key)
+        return self.api.status.get(self._number_key)
 
     async def async_set_native_value(self, value: float) -> None:
         """Update the setting and refresh state."""
-        await self.coordinator.async_write_and_refresh({self._number_key: int(value)})
+        await self.api.async_set_values({self._number_key: int(value)})
+        await self._async_refresh_after_write()
