@@ -1,74 +1,128 @@
-# AMPS, Alpicool, BrassMonkey, Ocean Comfort, ... 12V/24V BLE Fridge Integration for Home Assistant
+# AMPS Fridge BLE for Home Assistant
 
-This is a Home Assistant Custom Component to control AMPS, Alpicool, BrassMonkey, Ocean Comfort, or other compatible portable fridges via Bluetooth Low Energy (BLE).
+A Home Assistant custom integration for compatible AMPS, Alpicool, BrassMonkey, Ocean Comfort, and related 12 V/24 V portable fridges that use the same Bluetooth Low Energy protocol.
 
-This integration creates multiple entities in Home Assistant, allowing you to monitor and control all known aspects of your fridge.
+The protocol support in this repository has been verified against an AMPS F50. Other compatible models may expose a subset of the available entities.
 
-This component was inspired by the prior work done by klightspeed's [BrassMonkeyFridgeMonitor](https://github.com/klightspeed/BrassMonkeyFridgeMonitor).
+## Features
 
-## Features & Supported Entities
+- Local Bluetooth communication; no cloud account is required.
+- Home Assistant Bluetooth discovery when a compatible service UUID is advertised.
+- Bluetooth proxy support through Home Assistant's Bluetooth stack.
+- Single- and dual-zone status detection.
+- Climate entities for zone target/current temperature.
+- A whole-fridge power switch.
+- A control-panel lock switch.
+- Battery percentage and voltage diagnostic sensors.
+- Battery protection level selection.
+- Fridge temperature range, hysteresis, and compressor start-delay controls.
+- Freezer range controls when a dual-zone device reports them.
 
-* **Climate:** A central `climate` entity for each cooling zone to:
-    * Turn the fridge on and off.
-    * Set the target temperature (in 1°C increments).
-    * Switch between `Max` and `Eco` preset modes.
-    * Display the current temperature.
-* **Sensor:** Separate `sensor` entities for diagnostic data:
-    * Battery charge percentage.
-    * Battery voltage.
-* **Switch:** A `switch` entity to enable or disable the fridge's control panel lock.
-* **Number:** `number` entities to configure advanced settings directly from the UI:
-    * Compressor start delay (in minutes).
-    * Temperature hysteresis (return difference).
-* **Select:** `select` entities to configure advanced settings directly from the UI:
-    * Battery saver
+Power is intentionally represented as one whole-device switch. The underlying protocol exposes one shared power state, so presenting independent climate on/off controls for each zone would be misleading.
 
-## Dual-Zone Support
-This integration supports !!!untested!!! **both single and dual-zone fridges**. 
-
-* For **dual-zone** models, it will create two `climate` entities (`... Left` and `... Right`), which will both become available.
-* For **single-zone** models, it will also create two `climate` entities, but the `... Right` entity will remain permanently `unavailable` as the fridge does not report data for it. You can disable or hide this second entity in Home Assistant.
-
-## Changelog
-
-### 0.1
-* Forked and renamed from [`Gruni22/alpicool_ha_ble`](https://github.com/Gruni22/alpicool_ha_ble) to `amps_fridge_ble_ha`, targeting AMPS-branded fridges (e.g. the AMPS F50) in addition to Alpicool, since both share the same underlying BLE protocol - verified byte-for-byte against a real AMPS F50 via BLE packet capture.
-* **Fix:** `_build_set_other_payload` no longer zeroes out the freezer (right) zone's temperature range on every SET command. Those two bytes are now decoded/exposed as `right_temp_max` / `right_temp_min` instead of being treated as unused padding. Previously, sending *any* command (lock, power, battery-saver, fridge zone temp, etc.) would silently reset the freezer's configured min/max range to 0/0.
-* Added `Freezer Max Temperature` and `Freezer Min Temperature` number entities for dual-zone models, so the freezer's allowed range can be read and adjusted from Home Assistant the same way the fridge zone's range already can.
-* Fixed the SET command's trailing 3-byte footer to the verified constant (`00 03 00`), observed across 13 real SET commands from the manufacturer app, rather than an earlier unverified guess.
-
-***
 ## Installation
 
-Easiest install is via [HACS](https://hacs.xyz/):
+### HACS
 
-### Method 1: HACS (Recommended)
-1.  [![Open your Home Assistant instance and open a repository inside the Home Assistant Community Store.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=Gruni22&repository=alpicool_ha_ble&category=integration)
-4.  Search for "Alpicool BLE" and click "Install".
-5.  Restart Home Assistant.
+1. Open HACS in Home Assistant.
+2. Add this repository as a custom repository with category **Integration**:
+   `https://github.com/danfulton72/amps_fridge_ble_ha`
+3. Search for **AMPS Fridge BLE** and install it.
+4. Restart Home Assistant if HACS requests a restart.
 
-### Method 2: Manual Installation
-1.  Download the latest release from this repository.
-2.  Copy the `amps_fridge_ble_ha` directory into the `custom_components` directory of your Home Assistant instance.
-3.  Restart Home Assistant.
+You can also use the HACS repository shortcut:
 
-***
+[![Open your Home Assistant instance and open this repository in HACS.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=danfulton72&repository=amps_fridge_ble_ha&category=integration)
+
+### Manual
+
+1. Download a release from this repository.
+2. Copy `custom_components/amps_fridge_ble_ha` into the `custom_components` directory in your Home Assistant configuration directory.
+3. Restart Home Assistant.
+
 ## Configuration
 
-Configuration is done via the Home Assistant UI.
+Configuration is performed entirely from the Home Assistant UI.
 
-1.  Navigate to **Settings > Devices & Services**.
-2.  Home Assistant should automatically discover your fridge if it is powered on and nearby. If so, click **Configure** on the discovered device card.
-3.  If it's not discovered automatically, click **Add Integration**, search for "Alpicool BLE", and follow the prompts to select your device.
-4.  Select "dual_zone_modes" if your freezer has a Freezer or Fridge Mode. This will disable seperate controls, when the device is in fridge mode.
-5.  Press the pairing button on the fridge, if "APP" is written on the display.
+1. Power on the fridge and ensure it is in Bluetooth range of Home Assistant or a Bluetooth proxy.
+2. Go to **Settings > Devices & services**.
+3. If the fridge is discovered, choose **Configure**.
+4. Otherwise choose **Add Integration**, search for **AMPS Fridge BLE**, and enter the fridge Bluetooth address.
 
-***
-## Technical Details & Protocol Quirks
+Bluetooth addresses may be entered using colons, hyphens, or as twelve hexadecimal characters. They are normalized internally to `XX:XX:XX:XX:XX:XX`.
 
-The development of this integration revealed several quirks in the Alpicool BLE protocol that required specific workarounds in the code.
+Some fridge models require their APP/pairing control to be enabled before accepting a connection.
 
-* **Inconsistent Protocol:** The rules for calculating packet length and checksums are not consistent across all commands.
-* **Special Command Handling:** `BIND`, `QUERY`, `SET_LEFT`, and `SET_RIGHT` commands are treated as special cases with a different packet structure than more complex commands like `SET`.
-* **Concatenated BLE Responses:** The fridge responds to `SET` commands by sending two packets concatenated into a single BLE notification: first an echo of the sent command, followed by a full status update. The notification handler was specifically rewritten to parse this data stream correctly and ignore the echo.
-* **Signed Byte Conversion:** Temperature values are transmitted as signed 8-bit integers. The code correctly converts between negative temperature values (e.g., -20°C) and their unsigned byte representation (e.g., 236) for both sending and receiving data.
+## Entities
+
+A single-zone fridge normally exposes:
+
+- `climate`: Fridge
+- `switch`: Power
+- `switch`: Lock
+- `sensor`: Battery
+- `sensor`: Battery voltage
+- `select`: Battery saver
+- `number`: Fridge max temperature
+- `number`: Fridge min temperature
+- `number`: Fridge hysteresis
+- `number`: Start delay
+
+When a second zone is reported by the device, the integration additionally exposes:
+
+- `climate`: Freezer
+- `number`: Freezer max temperature
+- `number`: Freezer min temperature
+
+The exact settings accepted by a fridge can vary by model.
+
+## Bluetooth implementation
+
+The integration uses Home Assistant's Bluetooth device resolution and `bleak-retry-connector` rather than starting its own scanner. This allows Home Assistant to select the best local adapter or Bluetooth proxy path for the device.
+
+A `DataUpdateCoordinator` owns shared polling and availability. All entities consume the same status update instead of polling independently. Control writes request an immediate refresh so UI state is confirmed from the fridge rather than waiting for the normal polling interval.
+
+The protocol parser supports fragmented and concatenated BLE notifications and rejects packets with invalid checksums before they can overwrite entity state.
+
+## Protocol notes
+
+The AMPS F50 uses the same protocol family as several Alpicool-derived portable fridges. Important observed details include:
+
+- Temperatures are signed 8-bit values.
+- `BIND` and `QUERY` use fixed packet layouts.
+- SET commands use a checksum over the packet body.
+- Dual-zone SET payloads include independent freezer maximum/minimum temperature bytes.
+- The observed dual-zone SET footer is `00 03 00`.
+- SET responses may include an echoed command followed by a status packet.
+
+Protocol behaviour has been inferred from real BLE captures. Please open an issue with a debug log and model number if another compatible fridge behaves differently.
+
+## Development
+
+The repository includes:
+
+- HACS validation
+- Home Assistant Hassfest validation
+- Ruff linting
+- Pytest protocol/config-flow helper tests
+- Dependabot updates for GitHub Actions
+
+Run the local checks with:
+
+```bash
+python -m pip install homeassistant pytest ruff
+ruff check .
+pytest -q
+```
+
+## Versioning
+
+Releases use semantic versioning (`vMAJOR.MINOR.PATCH`). The integration manifest contains the matching version without the leading `v`.
+
+## Credits
+
+This project was originally derived from `Gruni22/alpicool_ha_ble` and builds on protocol investigation from `klightspeed/BrassMonkeyFridgeMonitor`.
+
+## License
+
+MIT License. See [LICENSE](LICENSE).
