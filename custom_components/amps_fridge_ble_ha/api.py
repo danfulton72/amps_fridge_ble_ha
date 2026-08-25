@@ -214,7 +214,13 @@ class FridgeApi:
             claimed_checksum = current_packet[-2:]
             computed_checksum = self._checksum(current_packet[:-2]).to_bytes(2, "big")
             if claimed_checksum != computed_checksum:
-                _LOGGER.warning("Discarding BLE packet with an invalid checksum")
+                _LOGGER.warning(
+                    "Discarding BLE packet with an invalid checksum "
+                    "(claimed=%s computed=%s packet=%s)",
+                    claimed_checksum.hex(),
+                    computed_checksum.hex(),
+                    current_packet.hex(),
+                )
                 continue
 
             cmd = current_packet[3]
