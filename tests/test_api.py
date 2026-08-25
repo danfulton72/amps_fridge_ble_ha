@@ -1,5 +1,7 @@
 """Protocol tests for AMPS Fridge BLE."""
 
+import logging
+
 from custom_components.amps_fridge_ble_ha.api import (
     AVAILABILITY_TIMEOUT_SECONDS,
     FridgeApi,
@@ -102,6 +104,36 @@ def test_fragmented_notification_is_reassembled() -> None:
     api._notification_handler(None, bytearray(packet[midpoint:]))
     assert api._status_updated_event.is_set()
     assert api.status["bat_percent"] == 87
+
+
+def test_repeated_header_resynchronizes_incomplete_packet() -> None:
+    api = _api()
+    packet = _response_packet(api, _status_payload())
+    split = 14
+    first_fragment = packet[:split]
+
+    api._notification_handler(None, bytearray(first_fragment))
+    api._notification_handler(None, bytearray(first_fragment))
+
+    assert not api._status_updated_event.is_set()
+    assert bytes(api._notification_buffer) == first_fragment
+
+    api._notification_handler(None, bytearray(packet[split:]))
+
+    assert api._status_updated_event.is_set()
+    assert api.status["bat_percent"] == 87
+
+
+def test_notification_fragments_are_logged_at_debug(caplog) -> None:
+    api = _api()
+    packet = _response_packet(api, _status_payload())
+
+    with caplog.at_level(
+        logging.DEBUG, logger="custom_components.amps_fridge_ble_ha.api"
+    ):
+        api._notification_handler("test-sender", bytearray(packet[:8]))
+
+    assert "BLE notification fragment from test-sender" in caplog.text
 
 
 def test_bad_checksum_is_rejected() -> None:

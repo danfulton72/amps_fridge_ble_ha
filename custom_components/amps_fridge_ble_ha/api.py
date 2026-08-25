@@ -17,6 +17,7 @@ from .const import FRIDGE_NOTIFY_UUID, FRIDGE_RW_CHARACTERISTIC_UUID, Request
 
 _LOGGER = logging.getLogger(__name__)
 AVAILABILITY_TIMEOUT_SECONDS = 5 * 60
+PACKET_HEADER = b"\xfe\xfe"
 
 
 def _to_signed_byte(value: int) -> int:
@@ -124,7 +125,7 @@ class FridgeApi:
 
         payload = bytearray([cmd])
         payload.extend(data)
-        packet = bytearray(b"\xfe\xfe")
+        packet = bytearray(PACKET_HEADER)
         packet.append(len(payload) + 2)
         packet.extend(payload)
         packet.extend(self._checksum(packet).to_bytes(2, "big"))
@@ -194,9 +195,10 @@ class FridgeApi:
 
     def _notification_handler(self, sender: Any, data: bytearray) -> None:
         """Reassemble fragmented notifications and parse complete packets."""
+        _LOGGER.debug("BLE notification fragment from %s: %s", sender, data.hex())
         self._notification_buffer.extend(data)
         while self._notification_buffer:
-            start_index = self._notification_buffer.find(b"\xfe\xfe")
+            start_index = self._notification_buffer.find(PACKET_HEADER)
             if start_index == -1:
                 self._notification_buffer.clear()
                 return
@@ -210,10 +212,21 @@ class FridgeApi:
                 return
 
             current_packet = bytes(self._notification_buffer[:expected_total_len])
-            del self._notification_buffer[:expected_total_len]
             claimed_checksum = current_packet[-2:]
             computed_checksum = self._checksum(current_packet[:-2]).to_bytes(2, "big")
             if claimed_checksum != computed_checksum:
+                replacement_header = current_packet.find(PACKET_HEADER, 2)
+                if replacement_header != -1:
+                    _LOGGER.debug(
+                        "Resynchronizing incomplete BLE packet at repeated header "
+                        "offset %s (discarded=%s)",
+                        replacement_header,
+                        current_packet[:replacement_header].hex(),
+                    )
+                    del self._notification_buffer[:replacement_header]
+                    continue
+
+                del self._notification_buffer[:expected_total_len]
                 _LOGGER.warning(
                     "Discarding BLE packet with an invalid checksum "
                     "(claimed=%s computed=%s packet=%s)",
@@ -223,6 +236,7 @@ class FridgeApi:
                 )
                 continue
 
+            del self._notification_buffer[:expected_total_len]
             cmd = current_packet[3]
             payload = current_packet[4:-2]
             if cmd == Request.QUERY:
