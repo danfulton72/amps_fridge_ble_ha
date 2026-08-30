@@ -4,6 +4,14 @@ from enum import IntEnum
 
 DOMAIN = "amps_fridge_ble_ha"
 
+# Advertised service UUIDs used for discovery matching.
+FRIDGE_SERVICE_UUID = "00001234-0000-1000-8000-00805f9b34fb"
+# Generic UUID used by many unrelated cheap BLE modules - only trusted when the
+# advertised name also matches one of the known fridge prefixes below.
+GENERIC_SERVICE_UUID = "0000fff0-0000-1000-8000-00805f9b34fb"
+# Compared against the uppercased advertised name.
+FRIDGE_NAME_PREFIXES = ("WT-", "A1-", "AK1-", "AK2-", "AK3-")
+
 FRIDGE_RW_CHARACTERISTIC_UUID = "00001235-0000-1000-8000-00805f9b34fb"
 FRIDGE_NOTIFY_UUID = "00001236-0000-1000-8000-00805f9b34fb"
 
