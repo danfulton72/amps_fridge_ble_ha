@@ -42,7 +42,7 @@ class AmpsFridgeClimateZone(AmpsFridgeEntity, ClimateEntity):
     """Representation of one cooling zone."""
 
     _attr_hvac_modes = [HVACMode.COOL]
-    _attr_temperature_unit = UnitOfTemperature.CELSIUS
+    _attr_native_temperature_unit = UnitOfTemperature.CELSIUS
     _attr_target_temperature_step = 1.0
     _attr_supported_features = ClimateEntityFeature.TARGET_TEMPERATURE
 
@@ -59,12 +59,12 @@ class AmpsFridgeClimateZone(AmpsFridgeEntity, ClimateEntity):
         return HVACMode.COOL
 
     @property
-    def current_temperature(self) -> float | None:
+    def native_current_temperature(self) -> float | None:
         """Return the current zone temperature."""
         return self.api.status.get(f"{self._zone}_current")
 
     @property
-    def target_temperature(self) -> float | None:
+    def native_target_temperature(self) -> float | None:
         """Return the target zone temperature."""
         return self.api.status.get(f"{self._zone}_target")
 
